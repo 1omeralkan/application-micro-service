@@ -36,16 +36,13 @@ public class ApplicationServiceImpl implements ApplicationService {
     @Override
     @Transactional
     public ApplicationResponseDto createApplication(ApplicationRequestDto requestDto) {
-        //Müşteri var mı
+
         CustomerResponseClientDto customer = getCustomerOrThrow(requestDto.getCustomerId());
 
-        //Ürünün aktif fiyatı ne
         ProductAmountResponseClientDto productAmount = getActiveAmountOrThrow(requestDto.getProductId());
 
-        //Başvuru numarası üret
         String applicationNumber = generateApplicationNumber();
 
-        //Entity oluşturuyoruz : status=PENDING, tarih=bugün, productAmountId=aktif fiyatın id si
         ApplicationEntity entity = applicationMapper.toEntity(
                 requestDto, productAmount.getId(), applicationNumber);
 
@@ -163,7 +160,6 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
     }
 
-    // Başvuru numarası ürettik : APP-2026-0001 formatında
     private String generateApplicationNumber() {
         String year = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy"));
         long count = applicationRepository.count() + 1;

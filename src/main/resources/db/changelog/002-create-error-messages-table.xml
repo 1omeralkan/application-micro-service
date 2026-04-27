@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.6.xsd">
+
+    <changeSet id="002-1" author="omeralkan">
+        <createTable tableName="error_messages">
+            <column name="error_code" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="language" type="VARCHAR(5)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(50)"/>
+        </createTable>
+
+        <addPrimaryKey
+                tableName="error_messages"
+                columnNames="error_code, language"
+                constraintName="pk_error_messages"/>
+    </changeSet>
+
+    <changeSet id="002-2" author="omeralkan">
+        <insert tableName="error_messages">
+            <column name="error_code" value="APP-404"/>
+            <column name="language" value="tr"/>
+            <column name="message" value="Aradığınız başvuru sistemde bulunamadı veya silinmiş olabilir."/>
+            <column name="created_at" valueDate="NOW()"/>
+            <column name="created_by" value="system"/>
+        </insert>
+        <insert tableName="error_messages">
+            <column name="error_code" value="APP-404"/>
+            <column name="language" value="en"/>
+            <column name="message" value="The requested application was not found or may have been deleted."/>
+            <column name="created_at" valueDate="NOW()"/>
+            <column name="created_by" value="system"/>
+        </insert>
+
+        <insert tableName="error_messages">
+            <column name="error_code" value="APP-CUST-404"/>
+            <column name="language" value="tr"/>
+            <column name="message" value="Belirtilen müşteri bulunamadı."/>
+            <column name="created_at" valueDate="NOW()"/>
+            <column name="created_by" value="system"/>
+        </insert>
+        <insert tableName="error_messages">
+            <column name="error_code" value="APP-CUST-404"/>
+            <column name="language" value="en"/>
+            <column name="message" value="The specified customer was not found."/>
+            <column name="created_at" valueDate="NOW()"/>
+            <column name="created_by" value="system"/>
+        </insert>
+
+        <insert tableName="error_messages">
+            <column name="error_code" value="APP-AMT-404"/>
+            <column name="language" value="tr"/>
+            <column name="message" value="Belirtilen ürün için aktif fiyat bulunamadı."/>
+            <column name="created_at" valueDate="NOW()"/>
+            <column name="created_by" value="system"/>
+        </insert>
+        <insert tableName="error_messages">
+            <column name="error_code" value="APP-AMT-404"/>
+            <column name="language" value="en"/>
+            <column name="message" value="No active price found for the specified product."/>
+            <column name="created_at" valueDate="NOW()"/>
+            <column name="created_by" value="system"/>
+        </insert>
+
+        <insert tableName="error_messages">
+            <column name="error_code" value="APP-CUST-ERR"/>
+            <column name="language" value="tr"/>
+            <column name="message" value="Müşteri servisine erişilemiyor. Lütfen daha sonra tekrar deneyin."/>
+            <column name="created_at" valueDate="NOW()"/>
+            <column name="created_by" value="system"/>
+        </insert>
+        <insert tableName="error_messages">
+            <column name="error_code" value="APP-CUST-ERR"/>
+            <column name="language" value="en"/>
+            <column name="message" value="Customer service is unavailable. Please try again later."/>
+            <column name="created_at" valueDate="NOW()"/>
+            <column name="created_by" value="system"/>
+        </insert>
+
+        <insert tableName="error_messages">
+            <column name="error_code" value="APP-PROD-ERR"/>
+            <column name="language" value="tr"/>
+            <column name="message" value="Ürün servisine erişilemiyor. Lütfen daha sonra tekrar deneyin."/>
+            <column name="created_at" valueDate="NOW()"/>
+            <column name="created_by" value="system"/>
+        </insert>
+        <insert tableName="error_messages">
+            <column name="error_code" value="APP-PROD-ERR"/>
+            <column name="language" value="en"/>
+            <column name="message" value="Product service is unavailable. Please try again later."/>
+            <column name="created_at" valueDate="NOW()"/>
+            <column name="created_by" value="system"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>
