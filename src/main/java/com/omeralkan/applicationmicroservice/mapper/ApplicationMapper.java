@@ -20,8 +20,8 @@ public class ApplicationMapper {
         dto.setId(entity.getId());
         dto.setApplicationNumber(entity.getApplicationNumber());
         dto.setCustomerId(entity.getCustomerId());
-        dto.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
         dto.setProductId(entity.getProductId());
+        dto.setCustomerName(customer.getAd() + " " + customer.getSoyad());
         dto.setProductName(productAmount.getProductName());
         dto.setProductAmountId(entity.getProductAmountId());
         dto.setAmount(productAmount.getAmount());

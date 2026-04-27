@@ -8,7 +8,7 @@ import lombok.Setter;
 public class CustomerResponseClientDto {
 
     private Long id;
-    private String firstName;
-    private String lastName;
+    private String ad;
+    private String soyad;
     private Boolean isActive;
 }
