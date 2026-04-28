@@ -1,9 +1,6 @@
 package com.omeralkan.applicationmicroservice.service.impl;
 
-import com.omeralkan.applicationmicroservice.client.CustomerResponseClientDto;
-import com.omeralkan.applicationmicroservice.client.CustomerServiceClient;
-import com.omeralkan.applicationmicroservice.client.ProductAmountResponseClientDto;
-import com.omeralkan.applicationmicroservice.client.ProductServiceClient;
+import com.omeralkan.applicationmicroservice.client.*;
 import com.omeralkan.applicationmicroservice.dto.request.ApplicationRequestDto;
 import com.omeralkan.applicationmicroservice.dto.response.ApplicationResponseDto;
 import com.omeralkan.applicationmicroservice.entity.ApplicationEntity;
@@ -32,54 +29,59 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final ApplicationMapper applicationMapper;
     private final CustomerServiceClient customerServiceClient;
     private final ProductServiceClient productServiceClient;
+    private final ParameterServiceClient parameterServiceClient;
 
     @Override
     @Transactional
     public ApplicationResponseDto createApplication(ApplicationRequestDto requestDto) {
-
+        // 1. Müşteri var mı?
         CustomerResponseClientDto customer = getCustomerOrThrow(requestDto.getCustomerId());
 
+        // 2. Ürünün aktif fiyatı ne?
         ProductAmountResponseClientDto productAmount = getActiveAmountOrThrow(requestDto.getProductId());
 
+        // 3. Ödeme tipi geçerli mi? Vade sayısı aralıkta mı?
+        PaymentTypeResponseClientDto paymentType = getPaymentTypeOrThrow(requestDto.getPaymentTypeCode());
+        validateInstallmentCount(requestDto.getInstallmentCount(), paymentType);
+
+        // 4. Başvuru numarası üret
         String applicationNumber = generateApplicationNumber();
 
-        ApplicationEntity entity = applicationMapper.toEntity(
-                requestDto, productAmount.getId(), applicationNumber);
-
+        // 5. Entity oluştur ve kaydet
+        ApplicationEntity entity = applicationMapper.toEntity(requestDto, productAmount.getId(), applicationNumber);
         ApplicationEntity savedEntity = applicationRepository.save(entity);
 
-        log.info("Başvuru oluşturuldu. No: {}, Müşteri: {} {}, Ürün: {}, Fiyat: {}",
+        log.info("Başvuru oluşturuldu. No: {}, Müşteri: {} {}, Ürün: {}, Fiyat: {}, Ödeme: {}, Taksit: {}",
                 applicationNumber,
                 customer.getAd(), customer.getSoyad(),
                 productAmount.getProductName(),
-                productAmount.getAmount());
+                productAmount.getAmount(),
+                requestDto.getPaymentTypeCode(),
+                requestDto.getInstallmentCount());
 
-        return applicationMapper.toResponse(savedEntity, customer, productAmount);
+        // 6. Response oluştur
+        return applicationMapper.toResponse(savedEntity, customer, productAmount, paymentType);
     }
 
     @Override
     public ApplicationResponseDto getApplicationById(Long id) {
         ApplicationEntity entity = findActiveApplicationOrThrow(id);
-
         CustomerResponseClientDto customer = getCustomerOrThrow(entity.getCustomerId());
         ProductAmountResponseClientDto productAmount = getActiveAmountOrThrow(entity.getProductId());
-
-        return applicationMapper.toResponse(entity, customer, productAmount);
+        PaymentTypeResponseClientDto paymentType = getPaymentTypeOrThrow(entity.getPaymentTypeCode());
+        return applicationMapper.toResponse(entity, customer, productAmount, paymentType);
     }
-
 
     @Override
     public ApplicationResponseDto getApplicationByNumber(String applicationNumber) {
         ApplicationEntity entity = applicationRepository
                 .findByApplicationNumberAndIsActiveTrue(applicationNumber)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.APPLICATION_NOT_FOUND, HttpStatus.NOT_FOUND));
-
         CustomerResponseClientDto customer = getCustomerOrThrow(entity.getCustomerId());
         ProductAmountResponseClientDto productAmount = getActiveAmountOrThrow(entity.getProductId());
-
-        return applicationMapper.toResponse(entity, customer, productAmount);
+        PaymentTypeResponseClientDto paymentType = getPaymentTypeOrThrow(entity.getPaymentTypeCode());
+        return applicationMapper.toResponse(entity, customer, productAmount, paymentType);
     }
-
 
     @Override
     public List<ApplicationResponseDto> getAllApplications() {
@@ -88,42 +90,37 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .map(entity -> {
                     CustomerResponseClientDto customer = getCustomerOrThrow(entity.getCustomerId());
                     ProductAmountResponseClientDto productAmount = getActiveAmountOrThrow(entity.getProductId());
-                    return applicationMapper.toResponse(entity, customer, productAmount);
+                    PaymentTypeResponseClientDto paymentType = getPaymentTypeOrThrow(entity.getPaymentTypeCode());
+                    return applicationMapper.toResponse(entity, customer, productAmount, paymentType);
                 })
                 .toList();
     }
 
-
     @Override
     public List<ApplicationResponseDto> getApplicationsByCustomerId(Long customerId) {
         getCustomerOrThrow(customerId);
-
         return applicationRepository.findAllByCustomerIdAndIsActiveTrue(customerId)
                 .stream()
                 .map(entity -> {
                     CustomerResponseClientDto customer = getCustomerOrThrow(entity.getCustomerId());
                     ProductAmountResponseClientDto productAmount = getActiveAmountOrThrow(entity.getProductId());
-                    return applicationMapper.toResponse(entity, customer, productAmount);
+                    PaymentTypeResponseClientDto paymentType = getPaymentTypeOrThrow(entity.getPaymentTypeCode());
+                    return applicationMapper.toResponse(entity, customer, productAmount, paymentType);
                 })
                 .toList();
     }
 
-
     @Override
     public ApplicationResponseDto updateApplicationStatus(Long id, String status) {
         ApplicationEntity entity = findActiveApplicationOrThrow(id);
-
         ApplicationStatus newStatus = ApplicationStatus.valueOf(status.toUpperCase());
         entity.setStatus(newStatus);
         ApplicationEntity updatedEntity = applicationRepository.save(entity);
-
-        log.info("Başvuru durumu güncellendi. No: {}, Yeni Durum: {}",
-                entity.getApplicationNumber(), newStatus);
-
+        log.info("Başvuru durumu güncellendi. No: {}, Yeni Durum: {}", entity.getApplicationNumber(), newStatus);
         CustomerResponseClientDto customer = getCustomerOrThrow(entity.getCustomerId());
         ProductAmountResponseClientDto productAmount = getActiveAmountOrThrow(entity.getProductId());
-
-        return applicationMapper.toResponse(updatedEntity, customer, productAmount);
+        PaymentTypeResponseClientDto paymentType = getPaymentTypeOrThrow(entity.getPaymentTypeCode());
+        return applicationMapper.toResponse(updatedEntity, customer, productAmount, paymentType);
     }
 
     @Override
@@ -131,15 +128,15 @@ public class ApplicationServiceImpl implements ApplicationService {
         ApplicationEntity entity = findActiveApplicationOrThrow(id);
         entity.setIsActive(false);
         applicationRepository.save(entity);
-
         log.info("Başvuru silindi. No: {}", entity.getApplicationNumber());
     }
+
+    // ==================== HELPER METODLAR ====================
 
     private ApplicationEntity findActiveApplicationOrThrow(Long id) {
         return applicationRepository.findById(id)
                 .filter(ApplicationEntity::getIsActive)
-                .orElseThrow(() -> new BusinessException(
-                        ErrorCodes.APPLICATION_NOT_FOUND, HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCodes.APPLICATION_NOT_FOUND, HttpStatus.NOT_FOUND));
     }
 
     private CustomerResponseClientDto getCustomerOrThrow(Long customerId) {
@@ -157,6 +154,24 @@ public class ApplicationServiceImpl implements ApplicationService {
         } catch (Exception e) {
             log.error("Product servisi hatası. ProductId: {}, Hata: {}", productId, e.getMessage());
             throw new BusinessException(ErrorCodes.PRODUCT_SERVICE_ERROR, HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    private PaymentTypeResponseClientDto getPaymentTypeOrThrow(String paymentTypeCode) {
+        try {
+            return parameterServiceClient.getPaymentTypeByCode(paymentTypeCode);
+        } catch (Exception e) {
+            log.error("Parameter servisi hatası. PaymentTypeCode: {}, Hata: {}", paymentTypeCode, e.getMessage());
+            throw new BusinessException(ErrorCodes.PARAMETER_SERVICE_ERROR, HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    private void validateInstallmentCount(Integer installmentCount, PaymentTypeResponseClientDto paymentType) {
+        if (installmentCount < paymentType.getMinInstallment()
+                || installmentCount > paymentType.getMaxInstallment()) {
+            log.error("Geçersiz taksit sayısı. Girilen: {}, Min: {}, Max: {}",
+                    installmentCount, paymentType.getMinInstallment(), paymentType.getMaxInstallment());
+            throw new BusinessException(ErrorCodes.INVALID_INSTALLMENT_COUNT, HttpStatus.BAD_REQUEST);
         }
     }
 

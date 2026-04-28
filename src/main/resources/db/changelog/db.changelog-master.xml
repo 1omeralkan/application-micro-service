@@ -7,5 +7,5 @@
 
     <include file="db/changelog/001-create-applications-table.xml"/>
     <include file="db/changelog/002-create-error-messages-table.xml"/>
-
+    <include file="db/changelog/003-add-payment-fields.xml"/>
 </databaseChangeLog>

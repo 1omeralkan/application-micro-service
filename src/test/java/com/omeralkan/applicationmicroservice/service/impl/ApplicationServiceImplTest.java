@@ -46,7 +46,6 @@ class ApplicationServiceImplTest {
 
     @Test
     void createApplication_ShouldCreateSuccessfully() {
-        // GIVEN
         ApplicationRequestDto requestDto = new ApplicationRequestDto();
         requestDto.setCustomerId(1L);
         requestDto.setProductId(1L);

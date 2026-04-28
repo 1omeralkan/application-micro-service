@@ -22,4 +22,8 @@ public class ApplicationResponseDto {
     private String status;
     private String description;
     private Boolean isActive;
+    private String paymentTypeCode;
+    private String paymentTypeName;    // "Peşin Ödeme" veya "Taksitli Ödeme"
+    private Integer installmentCount;
+    private BigDecimal installmentAmount; // Taksit tutarı = toplam / taksit sayısı
 }

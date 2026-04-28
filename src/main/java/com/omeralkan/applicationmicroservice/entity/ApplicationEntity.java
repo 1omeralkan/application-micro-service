@@ -38,4 +38,10 @@ public class ApplicationEntity extends BaseEntity {
 
     @Column(name = "description", length = 500)
     private String description;
+
+    @Column(name = "payment_type_code", nullable = false, length = 20)
+    private String paymentTypeCode;
+
+    @Column(name = "installment_count", nullable = false)
+    private Integer installmentCount;
 }
