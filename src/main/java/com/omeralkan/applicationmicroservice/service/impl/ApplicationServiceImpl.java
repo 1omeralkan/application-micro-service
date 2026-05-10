@@ -15,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -30,24 +32,26 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final CustomerServiceClient customerServiceClient;
     private final ProductServiceClient productServiceClient;
     private final ParameterServiceClient parameterServiceClient;
+    private final CollectionServiceClient collectionServiceClient;
+
 
     @Override
     @Transactional
     public ApplicationResponseDto createApplication(ApplicationRequestDto requestDto) {
-        // 1. Müşteri var mı?
+        //Müşteri var mı?
         CustomerResponseClientDto customer = getCustomerOrThrow(requestDto.getCustomerId());
 
-        // 2. Ürünün aktif fiyatı ne?
+        //Ürünün aktif fiyatı ne?
         ProductAmountResponseClientDto productAmount = getActiveAmountOrThrow(requestDto.getProductId());
 
-        // 3. Ödeme tipi geçerli mi? Vade sayısı aralıkta mı?
+        //Ödeme tipi geçerli mi? Vade sayısı aralıkta mı?
         PaymentTypeResponseClientDto paymentType = getPaymentTypeOrThrow(requestDto.getPaymentTypeCode());
         validateInstallmentCount(requestDto.getInstallmentCount(), paymentType);
 
-        // 4. Başvuru numarası üret
+        //Başvuru numarası üret
         String applicationNumber = generateApplicationNumber();
 
-        // 5. Entity oluştur ve kaydet
+        //Entity oluştur ve kaydet
         ApplicationEntity entity = applicationMapper.toEntity(requestDto, productAmount.getId(), applicationNumber);
         ApplicationEntity savedEntity = applicationRepository.save(entity);
 
@@ -59,7 +63,15 @@ public class ApplicationServiceImpl implements ApplicationService {
                 requestDto.getPaymentTypeCode(),
                 requestDto.getInstallmentCount());
 
-        // 6. Response oluştur
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                // Bu blok, üstteki save() işlemi veritabanına kalıcı olarak yazıldıktan sonra çalışır.
+                // Böylece CollectionService geri dönüp sorduğunda 404 Not Found almaz!
+                createCollectionsForApplication(savedEntity.getId());
+            }
+        });
+
         return applicationMapper.toResponse(savedEntity, customer, productAmount, paymentType);
     }
 
@@ -131,8 +143,6 @@ public class ApplicationServiceImpl implements ApplicationService {
         log.info("Başvuru silindi. No: {}", entity.getApplicationNumber());
     }
 
-    // ==================== HELPER METODLAR ====================
-
     private ApplicationEntity findActiveApplicationOrThrow(Long id) {
         return applicationRepository.findById(id)
                 .filter(ApplicationEntity::getIsActive)
@@ -179,5 +189,17 @@ public class ApplicationServiceImpl implements ApplicationService {
         String year = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy"));
         long count = applicationRepository.count() + 1;
         return String.format("APP-%s-%04d", year, count);
+    }
+
+    private void createCollectionsForApplication(Long applicationId) {
+        try {
+            collectionServiceClient.createCollections(applicationId);
+            log.info("Tahsilat oluşturuldu. ApplicationId: {}", applicationId);
+        } catch (Exception e) {
+            log.error("Collection servisi hatası. ApplicationId: {}, Hata: {}",
+                    applicationId, e.getMessage());
+            throw new BusinessException(
+                    ErrorCodes.COLLECTION_SERVICE_ERROR, HttpStatus.SERVICE_UNAVAILABLE);
+        }
     }
 }

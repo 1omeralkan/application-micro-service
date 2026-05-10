@@ -1,9 +1,6 @@
 package com.omeralkan.applicationmicroservice.service.impl;
 
-import com.omeralkan.applicationmicroservice.client.CustomerResponseClientDto;
-import com.omeralkan.applicationmicroservice.client.CustomerServiceClient;
-import com.omeralkan.applicationmicroservice.client.ProductAmountResponseClientDto;
-import com.omeralkan.applicationmicroservice.client.ProductServiceClient;
+import com.omeralkan.applicationmicroservice.client.*;
 import com.omeralkan.applicationmicroservice.dto.request.ApplicationRequestDto;
 import com.omeralkan.applicationmicroservice.dto.response.ApplicationResponseDto;
 import com.omeralkan.applicationmicroservice.entity.ApplicationEntity;
@@ -40,6 +37,9 @@ class ApplicationServiceImplTest {
     @Mock
     private ProductServiceClient productServiceClient;
 
+    @Mock
+    private ParameterServiceClient parameterServiceClient;
+
     @InjectMocks
     private ApplicationServiceImpl applicationService;
 
@@ -50,6 +50,8 @@ class ApplicationServiceImplTest {
         requestDto.setCustomerId(1L);
         requestDto.setProductId(1L);
         requestDto.setDescription("Kasko başvurusu");
+        requestDto.setPaymentTypeCode("T");
+        requestDto.setInstallmentCount(6);
 
         CustomerResponseClientDto customer = new CustomerResponseClientDto();
         customer.setId(1L);
@@ -61,6 +63,12 @@ class ApplicationServiceImplTest {
         productAmount.setProductId(1L);
         productAmount.setProductName("iPhone 15");
         productAmount.setAmount(new BigDecimal("50000"));
+
+        PaymentTypeResponseClientDto paymentType = new PaymentTypeResponseClientDto();
+        paymentType.setCode("T");
+        paymentType.setName("Taksitli Ödeme");
+        paymentType.setMinInstallment(2);
+        paymentType.setMaxInstallment(12);
 
         ApplicationEntity entity = new ApplicationEntity();
         entity.setApplicationNumber("APP-2026-0001");
@@ -78,13 +86,16 @@ class ApplicationServiceImplTest {
         responseDto.setProductName("iPhone 15");
         responseDto.setAmount(new BigDecimal("50000"));
         responseDto.setStatus("PENDING");
+        responseDto.setPaymentTypeCode("T");
+        responseDto.setInstallmentCount(6);
 
         when(customerServiceClient.getCustomerById(1L)).thenReturn(customer);
         when(productServiceClient.getActiveAmountByProductId(1L)).thenReturn(productAmount);
+        when(parameterServiceClient.getPaymentTypeByCode("T")).thenReturn(paymentType);
         when(applicationRepository.count()).thenReturn(0L);
         when(applicationMapper.toEntity(any(), any(), anyString())).thenReturn(entity);
         when(applicationRepository.save(any(ApplicationEntity.class))).thenReturn(savedEntity);
-        when(applicationMapper.toResponse(any(), any(), any())).thenReturn(responseDto);
+        when(applicationMapper.toResponse(any(), any(), any(), any())).thenReturn(responseDto);
 
         ApplicationResponseDto result = applicationService.createApplication(requestDto);
 
@@ -92,10 +103,12 @@ class ApplicationServiceImplTest {
         assertEquals("APP-2026-0001", result.getApplicationNumber());
         assertEquals("Ömer Alkan", result.getCustomerName());
         assertEquals("PENDING", result.getStatus());
-        assertEquals(new BigDecimal("50000"), result.getAmount());
+        assertEquals("T", result.getPaymentTypeCode());
+        assertEquals(6, result.getInstallmentCount());
 
         verify(customerServiceClient, times(1)).getCustomerById(1L);
         verify(productServiceClient, times(1)).getActiveAmountByProductId(1L);
+        verify(parameterServiceClient, times(1)).getPaymentTypeByCode("T");
         verify(applicationRepository, times(1)).save(any(ApplicationEntity.class));
     }
 
@@ -105,6 +118,8 @@ class ApplicationServiceImplTest {
         ApplicationRequestDto requestDto = new ApplicationRequestDto();
         requestDto.setCustomerId(999L);
         requestDto.setProductId(1L);
+        requestDto.setPaymentTypeCode("T");
+        requestDto.setInstallmentCount(6);
 
         when(customerServiceClient.getCustomerById(999L)).thenThrow(new RuntimeException("Connection refused"));
 
@@ -114,30 +129,42 @@ class ApplicationServiceImplTest {
 
         assertEquals("APP-CUST-ERR", exception.getMessage());
         verify(productServiceClient, never()).getActiveAmountByProductId(any());
+        verify(parameterServiceClient, never()).getPaymentTypeByCode(any());
         verify(applicationRepository, never()).save(any(ApplicationEntity.class));
     }
 
 
     @Test
-    void createApplication_WhenProductServiceFails_ShouldThrowBusinessException() {
+    void createApplication_WhenInvalidInstallmentCount_ShouldThrowBusinessException() {
         ApplicationRequestDto requestDto = new ApplicationRequestDto();
         requestDto.setCustomerId(1L);
-        requestDto.setProductId(999L);
+        requestDto.setProductId(1L);
+        requestDto.setPaymentTypeCode("T");
+        requestDto.setInstallmentCount(15); // Max 12, 15 geçersiz
 
         CustomerResponseClientDto customer = new CustomerResponseClientDto();
         customer.setId(1L);
         customer.setAd("Ömer");
         customer.setSoyad("Alkan");
 
+        ProductAmountResponseClientDto productAmount = new ProductAmountResponseClientDto();
+        productAmount.setId(1L);
+        productAmount.setAmount(new BigDecimal("50000"));
+
+        PaymentTypeResponseClientDto paymentType = new PaymentTypeResponseClientDto();
+        paymentType.setCode("T");
+        paymentType.setMinInstallment(2);
+        paymentType.setMaxInstallment(12); // Max 12
+
         when(customerServiceClient.getCustomerById(1L)).thenReturn(customer);
-        when(productServiceClient.getActiveAmountByProductId(999L)).thenThrow(new RuntimeException("Not found"));
+        when(productServiceClient.getActiveAmountByProductId(1L)).thenReturn(productAmount);
+        when(parameterServiceClient.getPaymentTypeByCode("T")).thenReturn(paymentType);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> {
             applicationService.createApplication(requestDto);
         });
 
-        assertEquals("APP-PROD-ERR", exception.getMessage());
-        verify(customerServiceClient, times(1)).getCustomerById(1L);
+        assertEquals("APP-INST-400", exception.getMessage());
         verify(applicationRepository, never()).save(any(ApplicationEntity.class));
     }
 
