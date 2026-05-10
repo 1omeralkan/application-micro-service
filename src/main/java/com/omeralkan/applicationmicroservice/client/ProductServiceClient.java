@@ -9,4 +9,7 @@ public interface ProductServiceClient {
 
     @GetMapping("/api/v1/product-amounts/product/{productId}/active")
     com.omeralkan.applicationmicroservice.client.ProductAmountResponseClientDto getActiveAmountByProductId(@PathVariable Long productId);
+
+    @GetMapping("/api/v1/products/{id}")
+    ProductResponseClientDto getProductById(@PathVariable Long id);
 }

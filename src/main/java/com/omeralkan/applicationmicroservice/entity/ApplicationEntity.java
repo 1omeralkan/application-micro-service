@@ -44,4 +44,7 @@ public class ApplicationEntity extends BaseEntity {
 
     @Column(name = "installment_count", nullable = false)
     private Integer installmentCount;
+
+    @OneToMany(mappedBy = "application", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private java.util.List<ApplicationCoverageEntity> coverages = new java.util.ArrayList<>();
 }

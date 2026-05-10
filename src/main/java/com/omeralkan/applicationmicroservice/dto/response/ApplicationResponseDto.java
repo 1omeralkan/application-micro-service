@@ -25,5 +25,5 @@ public class ApplicationResponseDto {
     private String paymentTypeCode;
     private String paymentTypeName;
     private Integer installmentCount;
-    private BigDecimal installmentAmount; // Taksit tutarı = toplam / taksit sayısı
+    private BigDecimal installmentAmount;
 }

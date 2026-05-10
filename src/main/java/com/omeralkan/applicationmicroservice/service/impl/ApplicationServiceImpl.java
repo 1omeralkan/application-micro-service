@@ -3,6 +3,7 @@ package com.omeralkan.applicationmicroservice.service.impl;
 import com.omeralkan.applicationmicroservice.client.*;
 import com.omeralkan.applicationmicroservice.dto.request.ApplicationRequestDto;
 import com.omeralkan.applicationmicroservice.dto.response.ApplicationResponseDto;
+import com.omeralkan.applicationmicroservice.entity.ApplicationCoverageEntity;
 import com.omeralkan.applicationmicroservice.entity.ApplicationEntity;
 import com.omeralkan.applicationmicroservice.entity.ApplicationStatus;
 import com.omeralkan.applicationmicroservice.exception.BusinessException;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -38,21 +40,17 @@ public class ApplicationServiceImpl implements ApplicationService {
     @Override
     @Transactional
     public ApplicationResponseDto createApplication(ApplicationRequestDto requestDto) {
-        //Müşteri var mı?
         CustomerResponseClientDto customer = getCustomerOrThrow(requestDto.getCustomerId());
-
-        //Ürünün aktif fiyatı ne?
         ProductAmountResponseClientDto productAmount = getActiveAmountOrThrow(requestDto.getProductId());
-
-        //Ödeme tipi geçerli mi? Vade sayısı aralıkta mı?
+        ProductResponseClientDto product = getProductOrThrow(requestDto.getProductId());
         PaymentTypeResponseClientDto paymentType = getPaymentTypeOrThrow(requestDto.getPaymentTypeCode());
         validateInstallmentCount(requestDto.getInstallmentCount(), paymentType);
-
-        //Başvuru numarası üret
         String applicationNumber = generateApplicationNumber();
 
-        //Entity oluştur ve kaydet
         ApplicationEntity entity = applicationMapper.toEntity(requestDto, productAmount.getId(), applicationNumber);
+
+        List<ApplicationCoverageEntity> coverages = calculateCoverages(product, productAmount.getAmount(), entity);
+        entity.setCoverages(coverages);
         ApplicationEntity savedEntity = applicationRepository.save(entity);
 
         log.info("Başvuru oluşturuldu. No: {}, Müşteri: {} {}, Ürün: {}, Fiyat: {}, Ödeme: {}, Taksit: {}",
@@ -66,8 +64,6 @@ public class ApplicationServiceImpl implements ApplicationService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                // Bu blok, üstteki save() işlemi veritabanına kalıcı olarak yazıldıktan sonra çalışır.
-                // Böylece CollectionService geri dönüp sorduğunda 404 Not Found almaz!
                 createCollectionsForApplication(savedEntity.getId());
             }
         });
@@ -201,5 +197,50 @@ public class ApplicationServiceImpl implements ApplicationService {
             throw new BusinessException(
                     ErrorCodes.COLLECTION_SERVICE_ERROR, HttpStatus.SERVICE_UNAVAILABLE);
         }
+    }
+
+    private ProductResponseClientDto getProductOrThrow(Long productId) {
+        try {
+            return productServiceClient.getProductById(productId);
+        } catch (Exception e) {
+            log.error("Product servisi hatası (Ürün detayı). ProductId: {}, Hata: {}", productId, e.getMessage());
+            throw new BusinessException(ErrorCodes.PRODUCT_SERVICE_ERROR, HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    private List<ApplicationCoverageEntity> calculateCoverages(ProductResponseClientDto product, BigDecimal premiumAmount, ApplicationEntity application) {
+        List<ApplicationCoverageEntity> applicationCoverages = new java.util.ArrayList<>();
+
+        if (product.getCoverages() == null || product.getCoverages().isEmpty()) {
+            return applicationCoverages;
+        }
+
+        for (ProductCoverageResponseClientDto catalogCoverage : product.getCoverages()) {
+            BigDecimal calculatedAmount = BigDecimal.ZERO;
+
+            if ("VEFAT".equalsIgnoreCase(catalogCoverage.getCoverageCode())) {
+                calculatedAmount = premiumAmount.multiply(BigDecimal.valueOf(100));
+            } else if ("MALULIYET".equalsIgnoreCase(catalogCoverage.getCoverageCode())) {
+                calculatedAmount = premiumAmount.multiply(BigDecimal.valueOf(50));
+            } else {
+                calculatedAmount = premiumAmount.multiply(BigDecimal.valueOf(10));
+            }
+
+            if (calculatedAmount.compareTo(catalogCoverage.getMaxAmount()) > 0) {
+                calculatedAmount = catalogCoverage.getMaxAmount();
+            } else if (calculatedAmount.compareTo(catalogCoverage.getMinAmount()) < 0) {
+                calculatedAmount = catalogCoverage.getMinAmount();
+            }
+
+            ApplicationCoverageEntity coverageEntity = new ApplicationCoverageEntity();
+            coverageEntity.setApplication(application);
+            coverageEntity.setCoverageCode(catalogCoverage.getCoverageCode());
+            coverageEntity.setName(catalogCoverage.getName());
+            coverageEntity.setCalculatedAmount(calculatedAmount);
+
+            applicationCoverages.add(coverageEntity);
+        }
+
+        return applicationCoverages;
     }
 }
