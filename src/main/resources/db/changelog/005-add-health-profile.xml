@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.6.xsd">
+
+    <changeSet id="005-1" author="omeralkan">
+        <addColumn tableName="applications">
+            <column name="is_health_report_required" type="TINYINT(1)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="005-2" author="omeralkan">
+        <createTable tableName="application_risk_profiles">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="application_id" type="BIGINT">
+                <constraints nullable="false" unique="true" foreignKeyName="fk_risk_app_id" references="applications(id)"/>
+            </column>
+
+            <column name="age" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="height" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="weight" type="DECIMAL(5,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="gender" type="VARCHAR(1)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="version" type="BIGINT" defaultValueNumeric="0"/>
+            <column name="is_active" type="TINYINT(1)" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(50)"/>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

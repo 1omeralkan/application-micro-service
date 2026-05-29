@@ -47,4 +47,10 @@ public class ApplicationEntity extends BaseEntity {
 
     @OneToMany(mappedBy = "application", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private java.util.List<ApplicationCoverageEntity> coverages = new java.util.ArrayList<>();
+
+    @Column(name = "is_health_report_required", nullable = false)
+    private Boolean isHealthReportRequired = false;
+
+    @OneToOne(mappedBy = "application", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private ApplicationRiskProfileEntity riskProfile;
 }

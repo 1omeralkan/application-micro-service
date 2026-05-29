@@ -3,14 +3,18 @@ package com.omeralkan.applicationmicroservice.service.impl;
 import com.omeralkan.applicationmicroservice.client.*;
 import com.omeralkan.applicationmicroservice.dto.request.ApplicationRequestDto;
 import com.omeralkan.applicationmicroservice.dto.response.ApplicationResponseDto;
+import com.omeralkan.applicationmicroservice.dto.response.RiskCalculationResult;
 import com.omeralkan.applicationmicroservice.entity.ApplicationCoverageEntity;
 import com.omeralkan.applicationmicroservice.entity.ApplicationEntity;
+import com.omeralkan.applicationmicroservice.entity.ApplicationRiskProfileEntity;
 import com.omeralkan.applicationmicroservice.entity.ApplicationStatus;
 import com.omeralkan.applicationmicroservice.exception.BusinessException;
 import com.omeralkan.applicationmicroservice.exception.ErrorCodes;
 import com.omeralkan.applicationmicroservice.mapper.ApplicationMapper;
 import com.omeralkan.applicationmicroservice.repository.ApplicationRepository;
 import com.omeralkan.applicationmicroservice.service.ApplicationService;
+import com.omeralkan.applicationmicroservice.service.RiskEngineService;
+import com.omeralkan.applicationmicroservice.util.CoverageCalculatorUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -35,7 +39,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final ProductServiceClient productServiceClient;
     private final ParameterServiceClient parameterServiceClient;
     private final CollectionServiceClient collectionServiceClient;
-
+    private final RiskEngineService riskEngineService;
 
     @Override
     @Transactional
@@ -49,17 +53,51 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         ApplicationEntity entity = applicationMapper.toEntity(requestDto, productAmount.getId(), applicationNumber);
 
-        List<ApplicationCoverageEntity> coverages = calculateCoverages(product, productAmount.getAmount(), entity);
+        RiskCalculationResult riskResult = riskEngineService.calculateRisk(
+                productAmount,
+                requestDto.getAge(),
+                requestDto.getHeight(),
+                requestDto.getWeight(),
+                requestDto.getGender()
+        );
+
+        entity.setIsHealthReportRequired(riskResult.isReportRequired());
+
+        ApplicationRiskProfileEntity riskProfile = new ApplicationRiskProfileEntity();
+        riskProfile.setApplication(entity);
+        riskProfile.setAge(requestDto.getAge());
+        riskProfile.setHeight(requestDto.getHeight());
+        riskProfile.setWeight(requestDto.getWeight());
+        riskProfile.setGender(requestDto.getGender());
+        entity.setRiskProfile(riskProfile);
+
+
+        List<ApplicationCoverageEntity> coverages = new java.util.ArrayList<>();
+
+        if (product.getCoverages() != null && requestDto.getRequestedCoverageCodes() != null) {
+            for (ProductCoverageResponseClientDto catalogCoverage : product.getCoverages()) {
+
+                if (requestDto.getRequestedCoverageCodes().contains(catalogCoverage.getCoverageCode())) {
+
+                    BigDecimal multiplier = parameterServiceClient.getCoverageMultiplierByCode(catalogCoverage.getCoverageCode());
+
+                    ApplicationCoverageEntity coverage = CoverageCalculatorUtil.createCoverageEntity(
+                            catalogCoverage, riskResult.finalPremium(), entity, multiplier);
+
+                    coverages.add(coverage);
+                }
+            }
+        }
         entity.setCoverages(coverages);
+
+
         ApplicationEntity savedEntity = applicationRepository.save(entity);
 
-        log.info("Başvuru oluşturuldu. No: {}, Müşteri: {} {}, Ürün: {}, Fiyat: {}, Ödeme: {}, Taksit: {}",
+        log.info("Başvuru oluşturuldu. No: {}, Baz Fiyat: {}, Riskli Fiyat: {}, Rapor Lazım Mı: {}",
                 applicationNumber,
-                customer.getAd(), customer.getSoyad(),
-                productAmount.getProductName(),
                 productAmount.getAmount(),
-                requestDto.getPaymentTypeCode(),
-                requestDto.getInstallmentCount());
+                riskResult.finalPremium(),
+                riskResult.isReportRequired());
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
@@ -208,39 +246,5 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
     }
 
-    private List<ApplicationCoverageEntity> calculateCoverages(ProductResponseClientDto product, BigDecimal premiumAmount, ApplicationEntity application) {
-        List<ApplicationCoverageEntity> applicationCoverages = new java.util.ArrayList<>();
 
-        if (product.getCoverages() == null || product.getCoverages().isEmpty()) {
-            return applicationCoverages;
-        }
-
-        for (ProductCoverageResponseClientDto catalogCoverage : product.getCoverages()) {
-            BigDecimal calculatedAmount = BigDecimal.ZERO;
-
-            if ("VEFAT".equalsIgnoreCase(catalogCoverage.getCoverageCode())) {
-                calculatedAmount = premiumAmount.multiply(BigDecimal.valueOf(100));
-            } else if ("MALULIYET".equalsIgnoreCase(catalogCoverage.getCoverageCode())) {
-                calculatedAmount = premiumAmount.multiply(BigDecimal.valueOf(50));
-            } else {
-                calculatedAmount = premiumAmount.multiply(BigDecimal.valueOf(10));
-            }
-
-            if (calculatedAmount.compareTo(catalogCoverage.getMaxAmount()) > 0) {
-                calculatedAmount = catalogCoverage.getMaxAmount();
-            } else if (calculatedAmount.compareTo(catalogCoverage.getMinAmount()) < 0) {
-                calculatedAmount = catalogCoverage.getMinAmount();
-            }
-
-            ApplicationCoverageEntity coverageEntity = new ApplicationCoverageEntity();
-            coverageEntity.setApplication(application);
-            coverageEntity.setCoverageCode(catalogCoverage.getCoverageCode());
-            coverageEntity.setName(catalogCoverage.getName());
-            coverageEntity.setCalculatedAmount(calculatedAmount);
-
-            applicationCoverages.add(coverageEntity);
-        }
-
-        return applicationCoverages;
-    }
 }

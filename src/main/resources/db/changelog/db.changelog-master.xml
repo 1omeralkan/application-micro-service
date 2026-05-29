@@ -9,4 +9,5 @@
     <include file="db/changelog/002-create-error-messages-table.xml"/>
     <include file="db/changelog/003-add-payment-fields.xml"/>
     <include file="db/changelog/004-create-application-coverages.xml"/>
+    <include file="db/changelog/005-add-health-profile.xml"/>
 </databaseChangeLog>
