@@ -1,6 +1,5 @@
 package com.omeralkan.applicationmicroservice.entity;
 
-import com.omeralkan.applicationmicroservice.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
