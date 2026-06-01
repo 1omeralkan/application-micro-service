@@ -8,12 +8,12 @@ public final class RiskCalculatorUtil {
         throw new UnsupportedOperationException("Utility sınıfı nesneye dönüştürülemez!");
     }
 
-    public static double calculateBmi(Integer height, BigDecimal weight) {
-        if (height == null || weight == null || height <= 0) {
+    public static double calculateBmi(BigDecimal height, BigDecimal weight) {
+        if (height == null || weight == null || height.compareTo(BigDecimal.ZERO) <= 0) {
             return 0.0;
         }
 
-        double heightInMeters = height / 100.0;
+        double heightInMeters = height.doubleValue() / 100.0;
         return weight.doubleValue() / (heightInMeters * heightInMeters);
     }
 }

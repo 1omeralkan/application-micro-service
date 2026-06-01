@@ -5,5 +5,5 @@ import com.omeralkan.applicationmicroservice.dto.response.RiskCalculationResult;
 import java.math.BigDecimal;
 
 public interface RiskEngineService {
-    RiskCalculationResult calculateRisk(ProductAmountResponseClientDto productAmount, Integer age, Integer height, BigDecimal weight, String gender);
+    RiskCalculationResult calculateRisk(ProductAmountResponseClientDto productAmount, Integer age, BigDecimal height, BigDecimal weight, String gender);
 }

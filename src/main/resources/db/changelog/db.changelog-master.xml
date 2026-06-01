@@ -10,4 +10,5 @@
     <include file="db/changelog/003-add-payment-fields.xml"/>
     <include file="db/changelog/004-create-application-coverages.xml"/>
     <include file="db/changelog/005-add-health-profile.xml"/>
+    <include file="db/changelog/006-modify-height-column-type.xml"/>
 </databaseChangeLog>

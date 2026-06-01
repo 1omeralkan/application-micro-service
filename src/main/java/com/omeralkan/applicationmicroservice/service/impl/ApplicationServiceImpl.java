@@ -221,8 +221,18 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     private String generateApplicationNumber() {
         String year = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy"));
-        long count = applicationRepository.count() + 1;
-        return String.format("APP-%s-%04d", year, count);
+        String prefix = "APP-" + year + "-";
+
+        // En son oluşturulan başvuru numarasını bul
+        String lastNumber = applicationRepository.findTopByApplicationNumberStartingWithOrderByIdDesc(prefix)
+                .map(ApplicationEntity::getApplicationNumber)
+                .orElse(prefix + "0000");
+
+        // Son numarayı parse et ve 1 artır
+        String lastSequence = lastNumber.substring(lastNumber.lastIndexOf("-") + 1);
+        long nextSequence = Long.parseLong(lastSequence) + 1;
+
+        return String.format("%s%04d", prefix, nextSequence);
     }
 
     private void createCollectionsForApplication(Long applicationId) {

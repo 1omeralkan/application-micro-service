@@ -17,7 +17,7 @@ public class ApplicationRequestDto {
     private Integer installmentCount;
     private List<String> requestedCoverageCodes;
     private Integer age;
-    private Integer height;
+    private BigDecimal height;
     private BigDecimal weight;
     private String gender;
 }

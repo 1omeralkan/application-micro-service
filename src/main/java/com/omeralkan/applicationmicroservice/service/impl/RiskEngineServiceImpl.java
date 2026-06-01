@@ -20,7 +20,7 @@ public class RiskEngineServiceImpl implements RiskEngineService {
     private final ParameterServiceClient parameterServiceClient;
 
     @Override
-    public RiskCalculationResult calculateRisk(ProductAmountResponseClientDto productAmount, Integer age, Integer height, BigDecimal weight, String gender) {
+    public RiskCalculationResult calculateRisk(ProductAmountResponseClientDto productAmount, Integer age, BigDecimal height, BigDecimal weight, String gender) {
         BigDecimal multiplier = BigDecimal.ONE;
 
         Map<String, BigDecimal> riskParams = parameterServiceClient.getAllRiskParameters();

@@ -13,4 +13,6 @@ public interface ApplicationRepository extends JpaRepository<ApplicationEntity, 
     List<ApplicationEntity> findAllByCustomerIdAndIsActiveTrue(Long customerId);
 
     Optional<ApplicationEntity> findByApplicationNumberAndIsActiveTrue(String applicationNumber);
+
+    Optional<ApplicationEntity> findTopByApplicationNumberStartingWithOrderByIdDesc(String prefix);
 }

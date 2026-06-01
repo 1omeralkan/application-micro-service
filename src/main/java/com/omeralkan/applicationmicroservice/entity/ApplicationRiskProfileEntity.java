@@ -23,8 +23,8 @@ public class ApplicationRiskProfileEntity extends BaseEntity {
     @Column(name = "age", nullable = false)
     private Integer age;
 
-    @Column(name = "height", nullable = false)
-    private Integer height;
+    @Column(name = "height", nullable = false, precision = 5, scale = 2)
+    private BigDecimal height;
 
     @Column(name = "weight", nullable = false, precision = 5, scale = 2)
     private BigDecimal weight;
