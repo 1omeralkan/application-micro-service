@@ -1,0 +1,26 @@
+name: Application Service CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    name: Build Service
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 1. Repoyu Çek
+      uses: actions/checkout@v3
+
+    - name: 2. Java 17 Ortamını Kur
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: 3. Maven ile Derle
+      run: mvn clean package -DskipTests
